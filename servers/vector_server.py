@@ -18,13 +18,7 @@ logging.basicConfig(
 # ----------------------------
 # Env & Pinecone Init
 # ----------------------------
-
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DOTENV_PATH = os.path.join(ROOT_DIR, ".env")
-
-load_dotenv(DOTENV_PATH)
-
-PINECONE_API_KEY = os.getenv("PINECONE_APIKEY")
+PINECONE_API_KEY = "pcsk_4hANZE_Pj2J5QUcPLPPiL8WXZKzBMba2es7PMLyRaett6bq9QUiswrdE7953iN4sBN5BdB"
 if not PINECONE_API_KEY:
     raise RuntimeError("❌ Missing Pinecone API key in .env (PINECONE_APIKEY)")
 
