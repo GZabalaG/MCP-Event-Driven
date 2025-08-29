@@ -31,7 +31,7 @@ SERVER_URLS = {
 }
 
 TOOLS = {
-    "extract_info": ["initial_info_extraction", "convert_format", "extract_text", "extract_info"],
+    "extract_info": ["initial_info_extraction", "convert_format", "extract_text"],
     "classification": ["classify_rules", "classify_llm"],
     "vectorize": ["vector_index", "vector_retrieve"],
     "action": ["notify", "archive"],
@@ -41,10 +41,7 @@ TOOLS = {
 # Contextual queries for vector search
 # ----------------------------
 USE_CASE_QUERIES = {
-    "pdf_invoice_categorization": "Quantity, item description, total amount",
-    "email_processing": "Intended recipient, subject, purpose of email",
-    "report": "Written by, summary, key findings",
-    "default": "Title, main content, metadata"
+    "paper": "The puprose of this paper",
 }
 
 # ----------------------------
@@ -63,22 +60,29 @@ async def call_tool(server_url: str, tool_name: str, args: dict):
             return result.content
 
 # ----------------------------
-# Mock Planner
+# Mock Planner (with error-safe checks)
 # ----------------------------
 def mock_planner(use_case: str, exploration: dict):
     steps = []
 
-    if exploration["type"].lower() in ["pdf", "docx"]:
+    # If exploration failed, no plan can be built
+    if exploration.get("status") == "error":
+        return steps  
+
+    doc_type = exploration.get("type", "").lower()
+    doc_len = exploration.get("length", 0)
+
+    if doc_type in ["eml"]:
         steps.append(("extract_info", "convert_format"))
 
-    if exploration["length"] > 500 or use_case == "email_processing":
+    if doc_len > 500:
         steps.append(("vectorize", "vector_index"))
     else:
         steps.append(("extract_info", "extract_text"))
 
     if use_case == "pdf_invoice_categorization":
         steps.append(("classification", "classify_llm"))
-    elif use_case in ["email_processing", "report"]:
+    elif use_case in ["email_processing", "paper"]:
         steps.append(("classification", "classify_rules"))
 
     if use_case == "pdf_invoice_categorization":
@@ -88,8 +92,9 @@ def mock_planner(use_case: str, exploration: dict):
 
     return steps
 
+
 # ----------------------------
-# Pipeline Execution
+# Pipeline Execution (with error handling)
 # ----------------------------
 async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     logger.info(f"[{pipeline_id}] Starting pipeline | Doc={doc_path} | UseCase={use_case}")
@@ -98,12 +103,20 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     exploration_raw = await call_tool(
         SERVER_URLS["extract_info"], "initial_info_extraction", {"path": doc_path}
     )
-    # Extract JSON from TextContent
     exploration_json = json.loads(exploration_raw[0].text)
     logger.info(f"[{pipeline_id}] Initial info extracted: {exploration_json}")
 
+    # If exploration failed → stop early
+    if exploration_json.get("status") == "error":
+        logger.error(f"[{pipeline_id}] ❌ Exploration failed: {exploration_json['error']}")
+        return None  
+
     # Step 2: Plan pipeline
     plan = mock_planner(use_case, exploration_json)
+    if not plan:
+        logger.warning(f"[{pipeline_id}] ⚠️ No plan generated, stopping pipeline")
+        return None
+
     logger.info(f"[{pipeline_id}] Pipeline plan: {plan}")
 
     # Step 3: Execute steps
@@ -118,7 +131,7 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
             args["path"] = doc_path
         elif tool_name == "vector_retrieve":
             args["doc_id"] = doc_id
-            args["query"] = USE_CASE_QUERIES.get(use_case, USE_CASE_QUERIES["default"])
+            args["query"] = USE_CASE_QUERIES.get(use_case, USE_CASE_QUERIES[use_case])
         elif tool_name in ["classify_rules", "classify_llm"]:
             args["use_case"] = use_case
             args["text"] = current_text
@@ -140,7 +153,7 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
             logger.error(f"[{pipeline_id}] Step failed {server_key}.{tool_name}: {e}")
             break
 
-    logger.info(f"[{pipeline_id}] Pipeline finished for {doc_path}")
+    logger.info(f"[{pipeline_id}] ✅ Pipeline finished for {doc_path}")
     return current_text
 
 # ----------------------------

@@ -46,13 +46,12 @@ mcp = FastMCP("vectorize", host="0.0.0.0", port=8004)
 @mcp.tool()
 async def vector_index(path: str, ctx: Context) -> dict:
     await ctx.info(f"📊 Indexing doc: {path}")
-    full_path = os.path.join("resources", path)
     
     try:
-        with open(full_path, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             text = f.read()
     except Exception as e:
-        await ctx.info(f"❌ Failed reading {full_path}: {e}")
+        await ctx.info(f"❌ Failed reading {path}: {e}")
         return {"status": "error", "error": str(e)}
 
     vector = embedder.encode(text).tolist()
