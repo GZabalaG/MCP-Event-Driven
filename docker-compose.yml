@@ -1,0 +1,76 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports: ["2181:2181"]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.1
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Optional but helpful in dev:
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true" 
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--list", "--bootstrap-server", "kafka:9092"]
+      interval: 10s
+      retries: 10
+
+  action_server:
+    build:
+      context: ./servers
+      dockerfile: Dockerfile
+    command: ["python", "action_server.py"]
+    depends_on: [kafka]
+    ports: ["8001:8001"]   # streamable HTTP at /mcp
+
+  classification_server:
+    build:
+      context: ./servers
+      dockerfile: Dockerfile
+    command: ["python", "classification_server.py"]
+    depends_on: [kafka]
+    ports: ["8002:8002"]
+
+  info_extraction_server:
+    build:
+      context: ./servers
+      dockerfile: Dockerfile
+    command: ["python", "info_extraction_server.py"]
+    depends_on: [kafka]
+    ports: ["8003:8003"]
+
+  vector_server:
+    build:
+      context: ./servers
+      dockerfile: Dockerfile
+    command: ["python", "vector_server.py"]
+    depends_on: [kafka]
+    ports: ["8004:8004"]
+
+  orchestrator:
+    build:
+      context: ./orchestrator
+    depends_on:
+      kafka:
+        condition: service_healthy
+      action_server:
+        condition: service_started
+      classification_server:
+        condition: service_started
+      info_extraction_server:
+        condition: service_started
+      vector_server:
+        condition: service_started
+    command: ["python", "-u", "orchestrator.py"]
+

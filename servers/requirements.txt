@@ -1,0 +1,10 @@
+aiokafka
+confluent-kafka
+kafka-python
+mcp[cli]
+pydantic
+uvicorn
+pinecone
+sentence-transformers
+torch
+transformers
