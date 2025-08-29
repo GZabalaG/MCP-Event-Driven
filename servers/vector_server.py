@@ -4,6 +4,7 @@ import uuid
 from mcp.server.fastmcp import FastMCP, Context
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
+import fitz
 
 # ----------------------------
 # Logging
@@ -48,8 +49,15 @@ async def vector_index(path: str, ctx: Context) -> dict:
     await ctx.info(f"📊 Indexing doc: {path}")
     
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
+        ext = os.path.splitext(path)[1].lower()
+        if ext == ".pdf":
+            text = ""
+            doc = fitz.open(path)
+            for page in doc:
+                text += page.get_text()
+        else:
+            with open(path, "r", encoding="utf-8") as f:
+                text = f.read()
     except Exception as e:
         await ctx.info(f"❌ Failed reading {path}: {e}")
         return {"status": "error", "error": str(e)}
@@ -62,6 +70,7 @@ async def vector_index(path: str, ctx: Context) -> dict:
     result = {"status": "ok", "doc_id": doc_id, "source": path}
     await ctx.debug(f"Vector index result: {result}")
     return result
+
 
 @mcp.tool()
 async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context = None) -> dict:

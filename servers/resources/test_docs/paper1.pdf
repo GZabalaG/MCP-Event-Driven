@@ -1,0 +1,36 @@
+Here’s a concise mock AI paper you could use for testing:
+
+---
+
+**Title:** *Advances in Artificial Intelligence: Trends and Applications*
+
+**Abstract:**
+Artificial Intelligence (AI) has experienced exponential growth over the past decade, impacting numerous sectors including healthcare, finance, and transportation. This paper explores recent advancements in machine learning, natural language processing, and reinforcement learning, highlighting key applications and future challenges.
+
+**1. Introduction**
+Artificial Intelligence refers to the simulation of human intelligence in machines. Modern AI systems leverage large-scale data and sophisticated algorithms to perform tasks such as decision-making, pattern recognition, and language understanding.
+
+**2. Machine Learning**
+Machine learning (ML) algorithms enable computers to learn from data without explicit programming. Supervised, unsupervised, and reinforcement learning approaches are discussed, along with practical use cases like predictive analytics and autonomous vehicles.
+
+**3. Natural Language Processing**
+Natural Language Processing (NLP) allows machines to interpret and generate human language. Recent transformer-based models, such as GPT and BERT, have dramatically improved tasks like translation, summarization, and question answering.
+
+**4. Reinforcement Learning**
+Reinforcement Learning (RL) trains agents to make sequential decisions by interacting with an environment. Applications include robotics, gaming, and dynamic resource management.
+
+**5. Ethical Considerations**
+AI adoption raises ethical issues including bias, privacy, and accountability. Ensuring fairness, transparency, and security is crucial as AI systems become integrated into critical domains.
+
+**6. Conclusion**
+AI continues to revolutionize multiple industries. Future research will focus on improving model generalization, interpretability, and ethical compliance, ensuring that AI benefits society as a whole.
+
+**References:**
+
+1. Russell, S., & Norvig, P. *Artificial Intelligence: A Modern Approach*. 4th Edition.
+2. Goodfellow, I., Bengio, Y., & Courville, A. *Deep Learning*. MIT Press, 2016.
+3. Vaswani, A., et al. *Attention is All You Need*. NeurIPS, 2017.
+
+---
+
+If you want, I can **also generate it as a `.txt` file** ready to drop into your `resources` folder for the orchestrator and vectorization pipeline. Do you want me to do that?

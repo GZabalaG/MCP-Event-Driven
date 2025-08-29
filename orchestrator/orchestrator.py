@@ -30,13 +30,6 @@ SERVER_URLS = {
     "vectorize": "http://vector_server:8004/mcp",
 }
 
-TOOLS = {
-    "extract_info": ["initial_info_extraction", "convert_format", "extract_text"],
-    "classification": ["classify_rules", "classify_llm"],
-    "vectorize": ["vector_index", "vector_retrieve"],
-    "action": ["notify", "archive"],
-}
-
 # ----------------------------
 # Contextual queries for vector search
 # ----------------------------
@@ -77,6 +70,7 @@ def mock_planner(use_case: str, exploration: dict):
 
     if doc_len > 500:
         steps.append(("vectorize", "vector_index"))
+        steps.append(("vectorize", "vector_retrieve"))
     else:
         steps.append(("extract_info", "extract_text"))
 
