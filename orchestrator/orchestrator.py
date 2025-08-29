@@ -80,9 +80,9 @@ def mock_planner(use_case: str, exploration: dict):
     else:
         steps.append(("extract_info", "extract_text"))
 
-    if use_case == "pdf_invoice_categorization":
+    if use_case == "paper":
         steps.append(("classification", "classify_llm"))
-    elif use_case in ["email_processing", "paper"]:
+    elif use_case in ["pdf_invoice_categorization", "email_processing"]:
         steps.append(("classification", "classify_rules"))
 
     if use_case == "pdf_invoice_categorization":
@@ -122,6 +122,7 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     # Step 3: Execute steps
     current_text = None
     doc_id = None
+    classifcation_result = None
     for server_key, tool_name in plan:
         args = {}
 
@@ -137,17 +138,24 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
             args["text"] = current_text
         elif tool_name in ["notify", "archive"]:
             args["action"] = tool_name
-            args["payload"] = {"doc": doc_path, "user": "alice"}
+            args["payload"] = {
+                "doc": doc_path,
+                "user": "alice",
+                "classification_result": classifcation_result
+            }
 
         logger.info(f"[{pipeline_id}] Executing {server_key}.{tool_name} with args={args}")
         try:
-            result = await call_tool(SERVER_URLS[server_key], tool_name, args)
+            result_raw = await call_tool(SERVER_URLS[server_key], tool_name, args)
+            result = json.loads(result_raw[0].text)
             logger.info(f"[{pipeline_id}] Result {server_key}.{tool_name}: {result}")
 
             if tool_name in ["extract_text", "vector_index"]:
                 current_text = result.get("text", None)
             if tool_name == "vector_index":
                 doc_id = result.get("doc_id", None)
+            if tool_name in ["classify_rules", "classify_llm"]:
+                classifcation_result = result.get("category", None)
 
         except Exception as e:
             logger.error(f"[{pipeline_id}] Step failed {server_key}.{tool_name}: {e}")

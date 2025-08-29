@@ -13,18 +13,14 @@ mcp = FastMCP("classification", host="0.0.0.0", port=8002)
 # Subcategory rule sets
 # ----------------------------
 SUBCATEGORY_RULES = {
-    "invoice": {
+    "pdf_invoice_categorization": {
         "utility_invoice": ["electricity", "water", "gas", "utility bill"],
         "purchase_invoice": ["purchase order", "invoice number", "total amount"],
         "subscription_invoice": ["subscription", "monthly fee", "plan"],
     },
-    "email": {
-        "personal_email": ["dear", "hi", "hello"],
+    "email_processing": {
+        "personal_email": ["dear", "hi"],
         "work_email": ["subject:", "regards", "team"],
-    },
-    "report": {
-        "financial_report": ["balance sheet", "profit and loss", "financial statement"],
-        "analysis_report": ["analysis", "summary", "metrics"],
     },
 }
 
@@ -34,25 +30,23 @@ async def classify_rules(text: str, use_case: str, ctx: Context) -> dict:
     await ctx.info(f"📂 Rule-based classification on: {text[:50]}...")
 
     category = "unknown"
-    subcategory = "unknown"
 
     # Ensure the use case exists
     rules_for_use_case = SUBCATEGORY_RULES.get(use_case, {})
-    for subcat, keywords in rules_for_use_case.items():
+    for cat, keywords in rules_for_use_case.items():
         if any(kw.lower() in text.lower() for kw in keywords):
-            category = use_case
-            subcategory = subcat
+            category = cat
             break
 
     result = {
         "status": "ok",
         "method": "rules",
         "category": category,
-        "subcategory": subcategory
     }
     await ctx.debug(f"Classification result: {result}")
     return result
 
+# TODO use sampling to use client LLM and generate a prompt template for use case
 @mcp.tool()
 async def classify_llm(text: str, ctx: Context) -> dict:
     """Mock LLM classification."""
@@ -60,8 +54,7 @@ async def classify_llm(text: str, ctx: Context) -> dict:
     result = {
         "status": "ok",
         "method": "llm",
-        "category": "general_doc",
-        "subcategory": "general"
+        "category": "AI paper",
     }
     await ctx.debug(f"LLM Classification result: {result}")
     return result
