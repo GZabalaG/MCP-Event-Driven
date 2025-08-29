@@ -6,7 +6,6 @@ from aiokafka import AIOKafkaConsumer
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 import os
-import json
 import openai
 
 openai.api_key = os.getenv("OPENAI_APIKEY")
@@ -39,31 +38,19 @@ TOOLS = {
 }
 
 # ----------------------------
-# Predefined Prompts (per use case)
+# Contextual queries for vector search
 # ----------------------------
-USE_CASE_PROMPTS = {
-    "pdf_invoice_categorization": """
-You are an orchestrator. Given the initial info extraction of a PDF invoice, 
-decide the steps: convert to txt if needed, classify by llm and archive.
-""",
-    "email_processing": """
-You are an orchestrator. Given the initial info extraction of an email, 
-decide if vectorization is needed based on length, classify with rules, and notify.
-""",
-    "report": """
-You are an orchestrator. Given the initial info extraction of a report, 
-decide if vectorization is needed based on length, classify with rules, and notify.
-""",
-    "default": """
-You are an orchestrator. For a generic document, decide conversion, vectorization, classification, and actions.
-"""
+USE_CASE_QUERIES = {
+    "pdf_invoice_categorization": "Quantity, item description, total amount",
+    "email_processing": "Intended recipient, subject, purpose of email",
+    "report": "Written by, summary, key findings",
+    "default": "Title, main content, metadata"
 }
 
 # ----------------------------
 # MCP Call Utility
 # ----------------------------
 async def call_tool(server_url: str, tool_name: str, args: dict):
-    """Call a tool on an MCP server and return its result."""
     async with streamablehttp_client(server_url) as (read_stream, write_stream, _):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
@@ -76,72 +63,30 @@ async def call_tool(server_url: str, tool_name: str, args: dict):
             return result.content
 
 # ----------------------------
-# Mock Planner (pretend LLM)
+# Mock Planner
 # ----------------------------
 def mock_planner(use_case: str, exploration: dict):
-    """
-    Pretend we used the prompt + exploration with an LLM.
-    Decide pipeline steps: convert, vectorize, extract_text, classify, action.
-    """
     steps = []
 
-    # Example logic: PDFs or DOCX may need conversion
-    if exploration.get("type", "").lower() in ["pdf", "docx"]:
+    if exploration["type"].lower() in ["pdf", "docx"]:
         steps.append(("extract_info", "convert_format"))
 
-    # If document is long or email, vectorize
-    if exploration.get("length", 0) > 500 or use_case == "email_processing":
+    if exploration["length"] > 500 or use_case == "email_processing":
         steps.append(("vectorize", "vector_index"))
     else:
         steps.append(("extract_info", "extract_text"))
 
-    # Classification based on use case
     if use_case == "pdf_invoice_categorization":
         steps.append(("classification", "classify_llm"))
     elif use_case in ["email_processing", "report"]:
         steps.append(("classification", "classify_rules"))
 
-    # Action
     if use_case == "pdf_invoice_categorization":
         steps.append(("action", "archive"))
     else:
         steps.append(("action", "notify"))
 
     return steps
-
-
-"""
-async def llm_planner(use_case: str, exploration: dict):
-    '''
-    Use GPT to decide the pipeline dynamically.
-    Combines the predefined prompt for the use case with the extracted info.
-    Returns: list of (server_key, tool_name)
-    '''
-    prompt = USE_CASE_PROMPTS.get(use_case, USE_CASE_PROMPTS["default"])
-    llm_input = f"{prompt}\n\nDocument info: {json.dumps(exploration, indent=2)}\n\n"
-    llm_input += "Return the pipeline as a JSON list of {'server': 'server_key', 'tool': 'tool_name'} objects."
-
-    # Async call to OpenAI GPT
-    response = await openai.ChatCompletion.acreate(
-        model="gpt-4",
-        messages=[{"role": "user", "content": llm_input}],
-        temperature=0
-    )
-
-    # Extract text content from GPT
-    content = response.choices[0].message.content
-
-    # Parse GPT output JSON
-    try:
-        steps = json.loads(content)
-        pipeline = [(step["server"], step["tool"]) for step in steps]
-    except Exception as e:
-        # Fallback if parsing fails
-        pipeline = []
-        print(f"⚠️ Failed to parse GPT output: {e} | content: {content}")
-
-    return pipeline
-"""
 
 # ----------------------------
 # Pipeline Execution
@@ -150,19 +95,15 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     logger.info(f"[{pipeline_id}] Starting pipeline | Doc={doc_path} | UseCase={use_case}")
 
     # Step 1: Initial exploration
-    try:
-        exploration = await call_tool(
-            SERVER_URLS["extract_info"],
-            "initial_info_extraction",
-            {"path": doc_path},
-        )
-        logger.info(f"[{pipeline_id}] Initial info extracted: {exploration}")
-    except Exception as e:
-        logger.error(f"[{pipeline_id}] Initial exploration failed: {e}")
-        return
+    exploration_raw = await call_tool(
+        SERVER_URLS["extract_info"], "initial_info_extraction", {"path": doc_path}
+    )
+    # Extract JSON from TextContent
+    exploration_json = json.loads(exploration_raw[0].text)
+    logger.info(f"[{pipeline_id}] Initial info extracted: {exploration_json}")
 
-    # Step 2: Plan pipeline (mock for now, LLM in future)
-    plan = mock_planner(use_case, exploration)
+    # Step 2: Plan pipeline
+    plan = mock_planner(use_case, exploration_json)
     logger.info(f"[{pipeline_id}] Pipeline plan: {plan}")
 
     # Step 3: Execute steps
@@ -171,33 +112,29 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     for server_key, tool_name in plan:
         args = {}
 
-        # Set arguments based on tool
-        if tool_name in ["initial_info_extraction", "convert_format"]:
+        if tool_name in ["initial_info_extraction", "convert_format", "extract_text"]:
             args["path"] = doc_path
         elif tool_name == "vector_index":
             args["path"] = doc_path
-        elif tool_name == "extract_text":
-            args["path"] = doc_path
+        elif tool_name == "vector_retrieve":
+            args["doc_id"] = doc_id
+            args["query"] = USE_CASE_QUERIES.get(use_case, USE_CASE_QUERIES["default"])
         elif tool_name in ["classify_rules", "classify_llm"]:
             args["use_case"] = use_case
             args["text"] = current_text
-        elif tool_name in ["notify", "archive", "take_action"]:
+        elif tool_name in ["notify", "archive"]:
             args["action"] = tool_name
             args["payload"] = {"doc": doc_path, "user": "alice"}
-        elif tool_name == "vector_retrieve":
-            args["query"] = f"{use_case} context"
-            args["doc_id"] = doc_id  # filter retrieval if needed
 
         logger.info(f"[{pipeline_id}] Executing {server_key}.{tool_name} with args={args}")
         try:
             result = await call_tool(SERVER_URLS[server_key], tool_name, args)
             logger.info(f"[{pipeline_id}] Result {server_key}.{tool_name}: {result}")
 
-            # Update current_text if returned
             if tool_name in ["extract_text", "vector_index"]:
                 current_text = result.get("text", None)
             if tool_name == "vector_index":
-                doc_id = result.get("indexed_id", None)
+                doc_id = result.get("doc_id", None)
 
         except Exception as e:
             logger.error(f"[{pipeline_id}] Step failed {server_key}.{tool_name}: {e}")
