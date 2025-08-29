@@ -44,11 +44,15 @@ TOOLS = {
 USE_CASE_PROMPTS = {
     "pdf_invoice_categorization": """
 You are an orchestrator. Given the initial info extraction of a PDF invoice, 
-decide the steps: convert to txt if needed, classify by rules, archive, and optionally classify with LLM if unknown type.
+decide the steps: convert to txt if needed, classify by llm and archive.
 """,
     "email_processing": """
 You are an orchestrator. Given the initial info extraction of an email, 
-decide if vectorization is needed based on length, classify with LLM, and notify.
+decide if vectorization is needed based on length, classify with rules, and notify.
+""",
+    "report": """
+You are an orchestrator. Given the initial info extraction of a report, 
+decide if vectorization is needed based on length, classify with rules, and notify.
 """,
     "default": """
 You are an orchestrator. For a generic document, decide conversion, vectorization, classification, and actions.
