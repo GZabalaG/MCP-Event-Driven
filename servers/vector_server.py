@@ -1,10 +1,10 @@
 import logging
-import os
 import uuid
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP, Context
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
-import fitz
+import fitz  # PyMuPDF
 
 # ----------------------------
 # Logging
@@ -44,42 +44,63 @@ embedder = SentenceTransformer("all-MiniLM-L6-v2")
 # ----------------------------
 mcp = FastMCP("vectorize", host="0.0.0.0", port=8004)
 
+
 @mcp.tool()
 async def vector_index(path: str, ctx: Context) -> dict:
+    """Index a file (PDF or TXT) into Pinecone."""
     await ctx.info(f"📊 Indexing doc: {path}")
-    
+
     try:
-        ext = os.path.splitext(path)[1].lower()
+        file_path = Path(path).resolve()
+        await ctx.debug(f"🔎 Checking file: {file_path}")
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        ext = file_path.suffix.lower()
+        text = ""
+
         if ext == ".pdf":
-            text = ""
-            doc = fitz.open(path)
-            for page in doc:
-                text += page.get_text()
+            await ctx.debug(f"📂 Opening PDF with fitz: {file_path}")
+            doc = fitz.open(file_path)
+            await ctx.debug(f"📄 PDF has {doc.page_count} pages")
+            for i, page in enumerate(doc, start=1):
+                page_text = page.get_text()
+                await ctx.debug(f"📑 Page {i} extracted, length={len(page_text)}")
+                text += page_text + "\n"
         else:
-            with open(path, "r", encoding="utf-8") as f:
+            await ctx.debug(f"📂 Opening text file: {file_path}")
+            with open(file_path, "r", encoding="utf-8") as f:
                 text = f.read()
+
+        if not text.strip():
+            raise ValueError("Extracted text is empty!")
+
     except Exception as e:
         await ctx.info(f"❌ Failed reading {path}: {e}")
         return {"status": "error", "error": str(e)}
 
+    # Create vector and upsert
     vector = embedder.encode(text).tolist()
     doc_id = str(uuid.uuid4())
-    metadata = {"doc_id": doc_id, "source": path}
+    metadata = {"doc_id": doc_id, "source": str(file_path)}
     index.upsert([(doc_id, vector, metadata)])
 
-    result = {"status": "ok", "doc_id": doc_id, "source": path}
-    await ctx.debug(f"Vector index result: {result}")
+    result = {"status": "ok", "doc_id": doc_id, "source": str(file_path)}
+    await ctx.debug(f"✅ Vector index result: {result}")
     return result
 
 
 @mcp.tool()
 async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context = None) -> dict:
+    """Retrieve vectors from Pinecone by doc_id and query."""
     await ctx.info(f"🔍 Retrieving top-{top_k} vectors for doc_id={doc_id} | query={query}")
-    
-    # Here, you can extend with real embedding of query if needed
-    # For mock purposes, we'll just filter by doc_id metadata
-    query_result = index.query(top_k=top_k, include_metadata=True, filter={"doc_id": {"$eq": doc_id}})
-    
+
+    query_result = index.query(
+        top_k=top_k, 
+        include_metadata=True, 
+        filter={"doc_id": {"$eq": doc_id}}
+    )
+
     matches = [
         {"id": m["id"], "score": m["score"], "source": m["metadata"].get("source")}
         for m in query_result["matches"]
@@ -88,9 +109,11 @@ async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context 
     await ctx.debug(f"Vector retrieve result: {result}")
     return result
 
+
 def main():
     logging.getLogger(__name__).info("🚀 Starting Vectorize MCP server on port 8004")
     mcp.run(transport="streamable-http")
+
 
 if __name__ == "__main__":
     main()
