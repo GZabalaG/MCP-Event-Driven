@@ -24,6 +24,7 @@ SUBCATEGORY_RULES = {
     },
 }
 
+
 @mcp.tool()
 async def classify_rules(text: str, use_case: str, ctx: Context) -> dict:
     """Classify a document into subcategories using predefined rules."""
@@ -46,6 +47,7 @@ async def classify_rules(text: str, use_case: str, ctx: Context) -> dict:
     await ctx.debug(f"Classification result: {result}")
     return result
 
+
 # TODO use sampling to use client LLM and generate a prompt template for use case
 @mcp.tool()
 async def classify_llm(text: str, ctx: Context) -> dict:
@@ -59,9 +61,13 @@ async def classify_llm(text: str, ctx: Context) -> dict:
     await ctx.debug(f"LLM Classification result: {result}")
     return result
 
+
 def main():
-    logging.getLogger(__name__).info("🚀 Starting Classification MCP server on port 8002")
+    logging.getLogger(__name__).info(
+        "🚀 Starting Classification MCP server on port 8002"
+    )
     mcp.run(transport="streamable-http")
+
 
 if __name__ == "__main__":
     main()

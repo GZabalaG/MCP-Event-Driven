@@ -8,8 +8,7 @@ TOPIC = "documents"
 print("Generating events...")
 
 producer = KafkaProducer(
-    bootstrap_servers=BROKER,
-    value_serializer=lambda v: json.dumps(v).encode("utf-8")
+    bootstrap_servers=BROKER, value_serializer=lambda v: json.dumps(v).encode("utf-8")
 )
 
 # Example events with proper use_case and paths

@@ -18,7 +18,9 @@ logging.basicConfig(
 # ----------------------------
 # Pinecone Init
 # ----------------------------
-PINECONE_API_KEY = "pcsk_4hANZE_Pj2J5QUcPLPPiL8WXZKzBMba2es7PMLyRaett6bq9QUiswrdE7953iN4sBN5BdB"
+PINECONE_API_KEY = (
+    "pcsk_4hANZE_Pj2J5QUcPLPPiL8WXZKzBMba2es7PMLyRaett6bq9QUiswrdE7953iN4sBN5BdB"
+)
 if not PINECONE_API_KEY:
     raise RuntimeError("❌ Missing Pinecone API key")
 
@@ -39,6 +41,7 @@ index = pc.Index(INDEX_NAME)
 # Embedding model
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
+
 # ----------------------------
 # Helpers
 # ----------------------------
@@ -53,6 +56,7 @@ def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50):
             chunks.append(chunk)
         start += chunk_size - overlap
     return chunks
+
 
 # ----------------------------
 # MCP Server
@@ -100,11 +104,21 @@ async def vector_index(path: str, ctx: Context) -> dict:
         for i, chunk in enumerate(chunks):
             vector = embedder.encode(chunk).tolist()
             chunk_id = f"{doc_id}_chunk_{i}"
-            metadata = {"doc_id": doc_id, "chunk_id": i, "text": chunk, "source": str(file_path)}
+            metadata = {
+                "doc_id": doc_id,
+                "chunk_id": i,
+                "text": chunk,
+                "source": str(file_path),
+            }
             vectors.append((chunk_id, vector, metadata))
 
         index.upsert(vectors)
-        result = {"status": "ok", "doc_id": doc_id, "chunks": len(chunks), "source": str(file_path)}
+        result = {
+            "status": "ok",
+            "doc_id": doc_id,
+            "chunks": len(chunks),
+            "source": str(file_path),
+        }
         await ctx.debug(f"✅ Vector index result: {result}")
         return result
 
@@ -114,9 +128,13 @@ async def vector_index(path: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context = None) -> dict:
+async def vector_retrieve(
+    doc_id: str, query: str, top_k: int = 5, ctx: Context = None
+) -> dict:
     """Retrieve vectors from Pinecone by doc_id and query."""
-    await ctx.info(f"🔍 Retrieving top-{top_k} vectors for doc_id={doc_id} | query={query}")
+    await ctx.info(
+        f"🔍 Retrieving top-{top_k} vectors for doc_id={doc_id} | query={query}"
+    )
 
     try:
         query_vector = embedder.encode(query).tolist()
@@ -135,7 +153,7 @@ async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context 
                 "score": m["score"],
                 "source": m["metadata"].get("source"),
                 "chunk_id": m["metadata"].get("chunk_id"),
-                "text": m["metadata"].get("text"),   # 👈 include retrieved text
+                "text": m["metadata"].get("text"),  # 👈 include retrieved text
             }
             for m in query_result.get("matches", [])
         ]
@@ -143,7 +161,11 @@ async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context 
         result = {
             "status": "ok",
             "matches": matches,
-            "texts": [m["metadata"]["text"] for m in query_result.get("matches", []) if "metadata" in m and "text" in m["metadata"]],
+            "texts": [
+                m["metadata"]["text"]
+                for m in query_result.get("matches", [])
+                if "metadata" in m and "text" in m["metadata"]
+            ],
         }
 
         await ctx.debug(f"✅ Vector retrieve result: {result}")

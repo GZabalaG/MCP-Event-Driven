@@ -37,6 +37,7 @@ USE_CASE_QUERIES = {
     "paper": "The puprose of this paper",
 }
 
+
 # ----------------------------
 # MCP Call Utility
 # ----------------------------
@@ -52,6 +53,7 @@ async def call_tool(server_url: str, tool_name: str, args: dict):
             result = await session.call_tool(tool_name, args)
             return result.content
 
+
 # ----------------------------
 # Mock Planner (with error-safe checks)
 # ----------------------------
@@ -60,7 +62,7 @@ def mock_planner(use_case: str, exploration: dict):
 
     # If exploration failed, no plan can be built
     if exploration.get("status") == "error":
-        return steps  
+        return steps
 
     doc_type = exploration.get("type", "").lower()
     doc_len = exploration.get("length", 0)
@@ -91,7 +93,9 @@ def mock_planner(use_case: str, exploration: dict):
 # Pipeline Execution (with error handling)
 # ----------------------------
 async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
-    logger.info(f"[{pipeline_id}] Starting pipeline | Doc={doc_path} | UseCase={use_case}")
+    logger.info(
+        f"[{pipeline_id}] Starting pipeline | Doc={doc_path} | UseCase={use_case}"
+    )
 
     # Step 1: Initial exploration
     exploration_raw = await call_tool(
@@ -102,8 +106,10 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
 
     # If exploration failed → stop early
     if exploration_json.get("status") == "error":
-        logger.error(f"[{pipeline_id}] ❌ Exploration failed: {exploration_json['error']}")
-        return None  
+        logger.error(
+            f"[{pipeline_id}] ❌ Exploration failed: {exploration_json['error']}"
+        )
+        return None
 
     # Step 2: Plan pipeline
     plan = mock_planner(use_case, exploration_json)
@@ -135,10 +141,12 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
             args["payload"] = {
                 "doc": doc_path,
                 "user": "alice",
-                "classification_result": classifcation_result
+                "classification_result": classifcation_result,
             }
 
-        logger.info(f"[{pipeline_id}] Executing {server_key}.{tool_name} with args={args}")
+        logger.info(
+            f"[{pipeline_id}] Executing {server_key}.{tool_name} with args={args}"
+        )
         try:
             result_raw = await call_tool(SERVER_URLS[server_key], tool_name, args)
             result = json.loads(result_raw[0].text)
@@ -160,11 +168,13 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
     logger.info(f"[{pipeline_id}] ✅ Pipeline finished for {doc_path}")
     return current_text
 
+
 # ----------------------------
 # Kafka Consumer
 # ----------------------------
 async def create_consumer():
     from aiokafka.errors import KafkaConnectionError
+
     while True:
         try:
             consumer = AIOKafkaConsumer(
@@ -179,6 +189,7 @@ async def create_consumer():
         except KafkaConnectionError:
             logger.warning("⚠️ Kafka not ready, retrying in 3s...")
             await asyncio.sleep(3)
+
 
 # ----------------------------
 # Main Loop
@@ -202,6 +213,7 @@ async def main():
 
     finally:
         await consumer.stop()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

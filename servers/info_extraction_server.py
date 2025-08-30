@@ -23,7 +23,7 @@ async def initial_info_extraction(path: str, ctx: Context) -> dict:
     await ctx.info(f"📑 Extracting initial info from: {path}")
 
     path = Path(path)
-    
+
     try:
         ext = path.suffix.lower()
         if ext == ".pdf":
