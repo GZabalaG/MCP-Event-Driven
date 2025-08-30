@@ -144,8 +144,10 @@ async def execute_pipeline(doc_path: str, use_case: str, pipeline_id: str):
             result = json.loads(result_raw[0].text)
             logger.info(f"[{pipeline_id}] Result {server_key}.{tool_name}: {result}")
 
-            if tool_name in ["extract_text", "vector_index"]:
+            if tool_name == "extract_text":
                 current_text = result.get("text", None)
+            if tool_name == "vector_retrieve":
+                current_text = str(result.get("matches", None))
             if tool_name == "vector_index":
                 doc_id = result.get("doc_id", None)
             if tool_name in ["classify_rules", "classify_llm"]:
