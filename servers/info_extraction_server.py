@@ -1,5 +1,4 @@
 import logging
-import os
 from mcp.server.fastmcp import FastMCP, Context
 from pathlib import Path
 from email import policy
