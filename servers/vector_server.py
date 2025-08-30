@@ -40,6 +40,21 @@ index = pc.Index(INDEX_NAME)
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
 # ----------------------------
+# Helpers
+# ----------------------------
+def chunk_text(text: str, chunk_size: int = 200, overlap: int = 50):
+    """Split text into overlapping chunks."""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        start += chunk_size - overlap
+    return chunks
+
+# ----------------------------
 # MCP Server
 # ----------------------------
 mcp = FastMCP("vectorize", host="0.0.0.0", port=8004)
@@ -47,7 +62,7 @@ mcp = FastMCP("vectorize", host="0.0.0.0", port=8004)
 
 @mcp.tool()
 async def vector_index(path: str, ctx: Context) -> dict:
-    """Index a file (PDF or TXT) into Pinecone."""
+    """Index a file (PDF or TXT) into Pinecone with chunking."""
     await ctx.info(f"📊 Indexing doc: {path}")
 
     try:
@@ -75,19 +90,27 @@ async def vector_index(path: str, ctx: Context) -> dict:
         if not text.strip():
             raise ValueError("Extracted text is empty!")
 
+        # Chunking
+        chunks = chunk_text(text)
+        await ctx.debug(f"✂️ Created {len(chunks)} chunks for embedding")
+
+        # Encode and upsert chunks
+        doc_id = str(uuid.uuid4())
+        vectors = []
+        for i, chunk in enumerate(chunks):
+            vector = embedder.encode(chunk).tolist()
+            chunk_id = f"{doc_id}_chunk_{i}"
+            metadata = {"doc_id": doc_id, "chunk_id": i, "text": chunk, "source": str(file_path)}
+            vectors.append((chunk_id, vector, metadata))
+
+        index.upsert(vectors)
+        result = {"status": "ok", "doc_id": doc_id, "chunks": len(chunks), "source": str(file_path)}
+        await ctx.debug(f"✅ Vector index result: {result}")
+        return result
+
     except Exception as e:
         await ctx.info(f"❌ Failed reading {path}: {e}")
         return {"status": "error", "error": str(e)}
-
-    # Create vector and upsert
-    vector = embedder.encode(text).tolist()
-    doc_id = str(uuid.uuid4())
-    metadata = {"doc_id": doc_id, "source": str(file_path)}
-    index.upsert([(doc_id, vector, metadata)])
-
-    result = {"status": "ok", "doc_id": doc_id, "source": str(file_path)}
-    await ctx.debug(f"✅ Vector index result: {result}")
-    return result
 
 
 @mcp.tool()
@@ -95,19 +118,40 @@ async def vector_retrieve(doc_id: str, query: str, top_k: int = 5, ctx: Context 
     """Retrieve vectors from Pinecone by doc_id and query."""
     await ctx.info(f"🔍 Retrieving top-{top_k} vectors for doc_id={doc_id} | query={query}")
 
-    query_result = index.query(
-        top_k=top_k, 
-        include_metadata=True, 
-        filter={"doc_id": {"$eq": doc_id}}
-    )
+    try:
+        query_vector = embedder.encode(query).tolist()
+        await ctx.debug(f"⚙️ Encoded query vector, dim={len(query_vector)}")
 
-    matches = [
-        {"id": m["id"], "score": m["score"], "source": m["metadata"].get("source")}
-        for m in query_result["matches"]
-    ]
-    result = {"status": "ok", "matches": matches}
-    await ctx.debug(f"Vector retrieve result: {result}")
-    return result
+        query_result = index.query(
+            vector=query_vector,
+            top_k=top_k,
+            include_metadata=True,
+            filter={"doc_id": {"$eq": str(doc_id).strip()}},
+        )
+
+        matches = [
+            {
+                "id": m["id"],
+                "score": m["score"],
+                "source": m["metadata"].get("source"),
+                "chunk_id": m["metadata"].get("chunk_id"),
+                "text": m["metadata"].get("text"),   # 👈 include retrieved text
+            }
+            for m in query_result.get("matches", [])
+        ]
+
+        result = {
+            "status": "ok",
+            "matches": matches,
+            "texts": [m["metadata"]["text"] for m in query_result.get("matches", []) if "metadata" in m and "text" in m["metadata"]],
+        }
+
+        await ctx.debug(f"✅ Vector retrieve result: {result}")
+        return result
+
+    except Exception as e:
+        await ctx.info(f"❌ Retrieval failed: {e}")
+        return {"status": "error", "error": str(e)}
 
 
 def main():
