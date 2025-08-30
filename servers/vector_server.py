@@ -1,10 +1,11 @@
 import logging
 import uuid
 from pathlib import Path
-from mcp.server.fastmcp import FastMCP, Context
+
+import fitz  # PyMuPDF
+from mcp.server.fastmcp import Context, FastMCP
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
-import fitz  # PyMuPDF
 
 # ----------------------------
 # Logging

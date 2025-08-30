@@ -1,8 +1,9 @@
 import logging
-from mcp.server.fastmcp import FastMCP, Context
-from pathlib import Path
 from email import policy
 from email.parser import BytesParser
+from pathlib import Path
+
+from mcp.server.fastmcp import Context, FastMCP
 
 logging.basicConfig(
     level=logging.DEBUG,

@@ -1,5 +1,6 @@
 import logging
-from mcp.server.fastmcp import FastMCP, Context
+
+from mcp.server.fastmcp import Context, FastMCP
 
 logging.basicConfig(
     level=logging.DEBUG,

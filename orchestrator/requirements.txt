@@ -1,3 +1,3 @@
-mcp[cli]
-aiokafka
-openai
+mcp[cli]==1.13.1
+aiokafka==0.12.0
+openai==1.102.0

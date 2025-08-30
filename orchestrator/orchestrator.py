@@ -1,12 +1,13 @@
 import asyncio
 import json
 import logging
-import uuid
-from aiokafka import AIOKafkaConsumer
-from mcp.client.streamable_http import streamablehttp_client
-from mcp import ClientSession
 import os
+import uuid
+
 import openai
+from aiokafka import AIOKafkaConsumer
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
 
 openai.api_key = os.getenv("OPENAI_APIKEY")
 
