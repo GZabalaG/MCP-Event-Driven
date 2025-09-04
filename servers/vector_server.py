@@ -20,6 +20,7 @@ logging.basicConfig(
 # Pinecone Init
 # ----------------------------
 PINECONE_API_KEY = (
+    "pcsk_4hANZE_Pj2J5QUcPLPPiL8WXZKzBMba2es7PMLyRaett6bq9QUiswrdE7953iN4sBN5BdB"
 )
 if not PINECONE_API_KEY:
     raise RuntimeError("❌ Missing Pinecone API key")
@@ -144,7 +145,7 @@ async def vector_retrieve(
             vector=query_vector,
             top_k=top_k,
             include_metadata=True,
-            filter={"doc_id": {"$eq": str(doc_id).strip()}},
+            #filter={"doc_id": {"$eq": str(doc_id).strip()}},
         )
 
         matches = [

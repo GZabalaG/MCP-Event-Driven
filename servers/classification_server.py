@@ -1,6 +1,7 @@
 import logging
-
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.session import ServerSession
+from mcp.types import SamplingMessage, TextContent
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -23,6 +24,13 @@ SUBCATEGORY_RULES = {
         "personal_email": ["dear", "hi"],
         "work_email": ["subject:", "regards", "team"],
     },
+}
+
+# ----------------------------
+# LLM prompts per use case
+# ----------------------------
+LLM_CLASSIFICATION_PROMPTS = {
+    "paper": "Classify this document into one of the following categories: AI Paper, Bio Paper, Law Paper."
 }
 
 
@@ -49,24 +57,41 @@ async def classify_rules(text: str, use_case: str, ctx: Context) -> dict:
     return result
 
 
-# TODO use sampling to use client LLM and generate a prompt template for use case
 @mcp.tool()
-async def classify_llm(text: str, ctx: Context) -> dict:
-    """Mock LLM classification."""
-    await ctx.info(f"🤖 Mock-LLM classifying text: {text[:50]}...")
+async def classify_llm(text: str, use_case: str, ctx: Context[ServerSession, None]) -> dict:
+    """Classify a document using an LLM via sampling."""
+    prompt = LLM_CLASSIFICATION_PROMPTS.get(use_case, "Classify this document into an appropriate category.")
+    full_prompt = f"{prompt}\n\nDocument:\n{text}"
+
+    await ctx.info(f"🤖 LLM classifying text (use_case={use_case}): {text[:50]}...")
+
+    # Create a sampling message
+    result_msg = await ctx.session.create_message(
+        messages=[
+            SamplingMessage(
+                role="user",
+                content=TextContent(type="text", text="Mock text input")
+            )
+        ],
+        max_tokens=100,
+    )
+
+    category = "unknown"
+    if result_msg.content.type == "text":
+        category = result_msg.content.text.strip()
+
     result = {
         "status": "ok",
         "method": "llm",
-        "category": "AI paper",
+        "category": category,
     }
+
     await ctx.debug(f"LLM Classification result: {result}")
     return result
 
 
 def main():
-    logging.getLogger(__name__).info(
-        "🚀 Starting Classification MCP server on port 8002"
-    )
+    logging.getLogger(__name__).info("🚀 Starting Classification MCP server on port 8002")
     mcp.run(transport="streamable-http")
 
 
