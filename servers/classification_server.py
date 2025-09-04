@@ -70,7 +70,7 @@ async def classify_llm(text: str, use_case: str, ctx: Context[ServerSession, Non
         messages=[
             SamplingMessage(
                 role="user",
-                content=TextContent(type="text", text="Mock text input")
+                content=TextContent(type="text", text=full_prompt)
             )
         ],
         max_tokens=100,
