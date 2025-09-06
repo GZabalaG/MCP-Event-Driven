@@ -58,9 +58,13 @@ async def classify_rules(text: str, use_case: str, ctx: Context) -> dict:
 
 
 @mcp.tool()
-async def classify_llm(text: str, use_case: str, ctx: Context[ServerSession, None]) -> dict:
+async def classify_llm(
+    text: str, use_case: str, ctx: Context[ServerSession, None]
+) -> dict:
     """Classify a document using an LLM via sampling."""
-    prompt = LLM_CLASSIFICATION_PROMPTS.get(use_case, "Classify this document into an appropriate category.")
+    prompt = LLM_CLASSIFICATION_PROMPTS.get(
+        use_case, "Classify this document into an appropriate category."
+    )
     full_prompt = f"{prompt}\n\nDocument:\n{text}"
 
     await ctx.info(f"🤖 LLM classifying text (use_case={use_case}): {text[:50]}...")
@@ -69,8 +73,7 @@ async def classify_llm(text: str, use_case: str, ctx: Context[ServerSession, Non
     result_msg = await ctx.session.create_message(
         messages=[
             SamplingMessage(
-                role="user",
-                content=TextContent(type="text", text=full_prompt)
+                role="user", content=TextContent(type="text", text=full_prompt)
             )
         ],
         max_tokens=100,
@@ -91,7 +94,9 @@ async def classify_llm(text: str, use_case: str, ctx: Context[ServerSession, Non
 
 
 def main():
-    logging.getLogger(__name__).info("🚀 Starting Classification MCP server on port 8002")
+    logging.getLogger(__name__).info(
+        "🚀 Starting Classification MCP server on port 8002"
+    )
     mcp.run(transport="streamable-http")
 
 

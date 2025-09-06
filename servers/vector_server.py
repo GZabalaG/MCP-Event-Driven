@@ -145,7 +145,7 @@ async def vector_retrieve(
             vector=query_vector,
             top_k=top_k,
             include_metadata=True,
-            #filter={"doc_id": {"$eq": str(doc_id).strip()}},
+            # filter={"doc_id": {"$eq": str(doc_id).strip()}},
         )
 
         matches = [

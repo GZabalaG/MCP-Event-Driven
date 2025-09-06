@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import os
 import uuid
 
 from openai import AsyncOpenAI
@@ -9,15 +8,11 @@ from aiokafka import AIOKafkaConsumer
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
-from mcp.types import SamplingMessage, TextContent
-
 import mcp.types as types
 from mcp.shared.context import RequestContext
 from typing import Any
 
-async_openai = AsyncOpenAI(
-    api_key="sk-xxx"
-)
+async_openai = AsyncOpenAI(api_key="sk-xxx")
 
 # ----------------------------
 # Logging
@@ -46,6 +41,7 @@ USE_CASE_QUERIES = {
     "paper": "The puprose of this paper",
 }
 
+
 # ----------------------------
 # Sampling Handler
 # ----------------------------
@@ -61,9 +57,9 @@ async def sampling_handler_mock(
 
     # Return a proper CreateMessageResult
     result = types.CreateMessageResult(
-        role="assistant",           # REQUIRED
-        model="mock-model",         # REQUIRED
-        content=text_content      # List of Content instances
+        role="assistant",  # REQUIRED
+        model="mock-model",  # REQUIRED
+        content=text_content,  # List of Content instances
     )
 
     return result
@@ -78,7 +74,12 @@ async def sampling_handler(
 
     # Convert MCP SamplingMessage to OpenAI chat format
     openai_messages = [
-        {"role": m.role, "content": m.content.text if isinstance(m.content, types.TextContent) else str(m.content)}
+        {
+            "role": m.role,
+            "content": m.content.text
+            if isinstance(m.content, types.TextContent)
+            else str(m.content),
+        }
         for m in params.messages
     ]
 
@@ -93,7 +94,7 @@ async def sampling_handler(
         messages=openai_messages,
         temperature=temperature,
         max_tokens=max_tokens,
-        stop=stop
+        stop=stop,
     )
 
     # Extract text
@@ -103,7 +104,7 @@ async def sampling_handler(
     return types.CreateMessageResult(
         role="assistant",
         model=response.model,
-        content=[types.TextContent(type="text", text=assistant_text)]
+        content=[types.TextContent(type="text", text=assistant_text)],
     )
 
 
@@ -112,7 +113,9 @@ async def sampling_handler(
 # ----------------------------
 async def call_tool(server_url: str, tool_name: str, args: dict):
     async with streamablehttp_client(server_url) as (read_stream, write_stream, _):
-        async with ClientSession(read_stream, write_stream, sampling_callback=sampling_handler) as session:
+        async with ClientSession(
+            read_stream, write_stream, sampling_callback=sampling_handler
+        ) as session:
             await session.initialize()
             tools = await session.list_tools()
             available = [t.name for t in tools.tools]
@@ -121,7 +124,6 @@ async def call_tool(server_url: str, tool_name: str, args: dict):
 
             result = await session.call_tool(tool_name, args)
             return result.content
-
 
 
 # ----------------------------
@@ -160,6 +162,7 @@ def mock_planner(use_case: str, exploration: dict):
 
     return steps
 
+
 # ----------------------------
 # LLM Planner using available MCP tools
 # ----------------------------
@@ -196,21 +199,26 @@ We want to process documents in the following structured order:
 Return strictly a Python list of tuples [(server_key, tool_name), ...] representing the workflow steps.
 """
 
+
 async def get_all_tools(server_urls: dict) -> list[str]:
     """Fetch tools from all MCP servers."""
     all_tools = []
     for server_key, url in server_urls.items():
         async with streamablehttp_client(url) as (read_stream, write_stream, _):
-            async with ClientSession(read_stream, write_stream, sampling_callback=sampling_handler) as session:
+            async with ClientSession(
+                read_stream, write_stream, sampling_callback=sampling_handler
+            ) as session:
                 await session.initialize()
                 tools = await session.list_tools()
                 all_tools.extend([f"{server_key}.{t.name}" for t in tools.tools])
-    
+
     logger.info(f"Tools available:\n{all_tools}")
     return all_tools
 
 
-async def llm_planner(use_case: str, exploration: dict, server_urls: dict) -> list[tuple[str]]:
+async def llm_planner(
+    use_case: str, exploration: dict, server_urls: dict
+) -> list[tuple[str]]:
     if exploration.get("status") == "error":
         return []
 
@@ -242,12 +250,15 @@ async def llm_planner(use_case: str, exploration: dict, server_urls: dict) -> li
     try:
         plan = eval(text)
         logger.info(f"Plan response:\n{text}")
-        if not isinstance(plan, list) or not all(isinstance(t, tuple) and len(t) == 2 for t in plan):
+        if not isinstance(plan, list) or not all(
+            isinstance(t, tuple) and len(t) == 2 for t in plan
+        ):
             raise ValueError("LLM returned invalid format")
         return plan
     except Exception as e:
         logger.error(f"Failed to parse LLM response: {e}")
         return []
+
 
 # ----------------------------
 # Pipeline Execution (with error handling)
