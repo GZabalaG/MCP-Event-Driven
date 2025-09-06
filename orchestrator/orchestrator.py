@@ -95,7 +95,7 @@ async def sampling_handler(
         max_tokens=max_tokens,
         stop=stop
     )
-    
+
     # Extract text
     assistant_text = response.choices[0].message.content.strip()
 
@@ -156,6 +156,8 @@ def mock_planner(use_case: str, exploration: dict):
     else:
         steps.append(("action", "notify"))
 
+    logger.info(f"Plan response:\n{steps}")
+
     return steps
 
 # ----------------------------
@@ -203,6 +205,8 @@ async def get_all_tools(server_urls: dict) -> list[str]:
                 await session.initialize()
                 tools = await session.list_tools()
                 all_tools.extend([f"{server_key}.{t.name}" for t in tools.tools])
+    
+    logger.info(f"Tools available:\n{all_tools}")
     return all_tools
 
 
@@ -234,10 +238,10 @@ async def llm_planner(use_case: str, exploration: dict, server_urls: dict) -> li
     )
 
     text = response.choices[0].message.content.strip()
-    logger.info(f"LLM plan response:\n{text}")
 
     try:
         plan = eval(text)
+        logger.info(f"Plan response:\n{text}")
         if not isinstance(plan, list) or not all(isinstance(t, tuple) and len(t) == 2 for t in plan):
             raise ValueError("LLM returned invalid format")
         return plan
