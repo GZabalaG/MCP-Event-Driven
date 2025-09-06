@@ -45,7 +45,7 @@ USE_CASE_QUERIES = {
 # ----------------------------
 # Sampling Handler
 # ----------------------------
-async def sampling_handler_mock(
+async def sampling_handler(
     context: RequestContext["ClientSession", Any],
     params: types.CreateMessageRequestParams,
 ) -> types.CreateMessageResult:
@@ -53,19 +53,19 @@ async def sampling_handler_mock(
     logger.info(f"🧠 [sampling_handler] Received params: {params}")
 
     # Build a single TextContent object directly
-    text_content = types.TextContent(type="text", text="MOCK result_text")
+    text_content = types.TextContent(type="text", text="AI Paper")
 
     # Return a proper CreateMessageResult
     result = types.CreateMessageResult(
-        role="assistant",  # REQUIRED
-        model="mock-model",  # REQUIRED
-        content=text_content,  # List of Content instances
+        role="assistant",
+        model="mock-model",
+        content=text_content,
     )
 
     return result
 
 
-async def sampling_handler(
+async def sampling_handler_llm(
     context: RequestContext["ClientSession", Any],
     params: types.CreateMessageRequestParams,
 ) -> types.CreateMessageResult:
