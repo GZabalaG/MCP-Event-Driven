@@ -20,7 +20,7 @@ logging.basicConfig(
 # Pinecone Init
 # ----------------------------
 PINECONE_API_KEY = (
-    "pcsk_4hANZE_Pj2J5QUcPLPPiL8WXZKzBMba2es7PMLyRaett6bq9QUiswrdE7953iN4sBN5BdB"
+    "xxx"
 )
 if not PINECONE_API_KEY:
     raise RuntimeError("❌ Missing Pinecone API key")
